@@ -1,0 +1,26 @@
+# Dependencies & Build Output
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secrets & Environment Variables
+.env
+.env.*
+!.env.example
+
+# WhatsApp Multi-Device Session Credentials (CRITICAL: NEVER COMMIT)
+auth_info/
+
+# Local SQLite Database & Runtime Data
+data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# Logs & OS Artifacts
+logs/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
