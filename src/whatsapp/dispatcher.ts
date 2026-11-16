@@ -27,7 +27,7 @@ export async function sendQuotedReply(
   }
 
   try {
-    await sock.sendMessage(groupJid, { text }, { quoted: quotedMessage });
+    await sock.sendMessage(groupJid, { text, linkPreview: null }, { quoted: quotedMessage });
   } finally {
     try {
       await sock.sendPresenceUpdate('paused', groupJid);
