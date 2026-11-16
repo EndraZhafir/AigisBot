@@ -22,21 +22,31 @@ describe('config/env', () => {
     assert.equal(config.waAuthDir, 'auth_info');
     assert.equal(config.waPairingPhone, undefined);
     assert.equal(config.allowedGroupJids.size, 0);
+    assert.equal(config.geminiApiKey, undefined);
+    assert.equal(config.geminiModel, 'gemini-3.5-flash-lite');
+    assert.deepEqual(config.geminiFallbackModels, ['gemini-3.1-flash-lite']);
+    assert.equal(config.geminiTimeoutMs, 10_000);
+    assert.equal(config.enableSearchGrounding, false);
     assert.equal(config.userCooldownMs, 15_000);
     assert.equal(config.groupCooldownMs, 5_000);
   });
 
-  it('parses owners, allowed groups, and pairing phone from env', () => {
+  it('parses owners, allowed groups, LLM settings, and pairing phone from env', () => {
     const config = loadConfig({
       WA_PAIRING_PHONE: '+62 811-2233-4455',
       ALLOWED_GROUP_JIDS: '12345@g.us, 67890@g.us',
       BOT_OWNER_NUMBERS: '+62 899-0000-1111',
+      GEMINI_API_KEY: ' AIzaTestKey ',
+      GEMINI_MODEL: 'gemini-2.5-flash',
+      ENABLE_SEARCH_GROUNDING: 'false',
       USER_COOLDOWN_MS: '20000',
     });
 
     assert.equal(config.waPairingPhone, '6281122334455');
     assert.deepEqual([...config.allowedGroupJids], ['12345@g.us', '67890@g.us']);
     assert.deepEqual([...config.botOwnerNumbers], ['6289900001111']);
+    assert.equal(config.geminiApiKey, 'AIzaTestKey');
+    assert.equal(config.enableSearchGrounding, false);
     assert.equal(config.userCooldownMs, 20_000);
     assert.equal(config.groupCooldownMs, 5_000);
   });

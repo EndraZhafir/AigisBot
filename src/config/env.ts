@@ -9,6 +9,14 @@ export interface AppConfig {
   readonly waPairingPhone: string | undefined;
   readonly allowedGroupJids: ReadonlySet<string>;
   readonly botOwnerNumbers: ReadonlySet<string>;
+  readonly geminiApiKey: string | undefined;
+  readonly geminiModel: string;
+  readonly geminiFallbackModels: readonly string[];
+  readonly geminiTimeoutMs: number;
+  readonly groqApiKey: string | undefined;
+  readonly groqModel: string;
+  readonly enableSearchGrounding: boolean;
+  readonly newsFeedCacheTtlMs: number;
   readonly dbPath: string;
   readonly userCooldownMs: number;
   readonly groupCooldownMs: number;
@@ -52,6 +60,20 @@ function parsePositiveInt(rawValue: string | undefined, fallback: number): numbe
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function parseBoolean(rawValue: string | undefined, fallback: boolean): boolean {
+  if (!rawValue) {
+    return fallback;
+  }
+  const normalized = rawValue.trim().toLowerCase();
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes') {
+    return true;
+  }
+  if (normalized === 'false' || normalized === '0' || normalized === 'no') {
+    return false;
+  }
+  return fallback;
+}
+
 function parseNodeEnv(rawValue: string | undefined): AppConfig['nodeEnv'] {
   if (rawValue === 'production' || rawValue === 'test') {
     return rawValue;
@@ -79,6 +101,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     waPairingPhone: normalizePhoneDigits(env.WA_PAIRING_PHONE),
     allowedGroupJids: parseCsvSet(env.ALLOWED_GROUP_JIDS),
     botOwnerNumbers: normalizedOwners,
+    geminiApiKey: env.GEMINI_API_KEY?.trim() || undefined,
+    geminiModel: env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash-lite',
+    geminiFallbackModels: [
+      ...parseCsvSet(
+        env.GEMINI_FALLBACK_MODELS ?? 'gemini-3.1-flash-lite',
+      ),
+    ],
+    geminiTimeoutMs: parsePositiveInt(env.GEMINI_TIMEOUT_MS, 10_000),
+    groqApiKey: env.GROQ_API_KEY?.trim() || undefined,
+    groqModel: env.GROQ_MODEL?.trim() || 'llama-3.3-70b-versatile',
+    enableSearchGrounding: parseBoolean(env.ENABLE_SEARCH_GROUNDING, false),
+    newsFeedCacheTtlMs: parsePositiveInt(env.NEWS_FEED_CACHE_TTL_MS, 15 * 60_000),
     dbPath: env.DB_PATH?.trim() || 'data/aigis.db',
     userCooldownMs: parsePositiveInt(env.USER_COOLDOWN_MS, 15_000),
     groupCooldownMs: parsePositiveInt(env.GROUP_COOLDOWN_MS, 5_000),
