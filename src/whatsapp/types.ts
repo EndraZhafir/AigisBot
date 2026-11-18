@@ -16,6 +16,17 @@ export interface QuotedMessageContext {
   readonly text: string;
 }
 
+export interface ObservedGroupMessage {
+  readonly groupJid: string;
+  readonly messageId: string;
+  readonly senderJid: string;
+  readonly senderAltJid: string | undefined;
+  readonly senderName: string;
+  readonly rawText: string;
+  readonly cleanText: string;
+  readonly timestampMs: number;
+}
+
 export interface IncomingGroupTrigger {
   readonly groupJid: string;
   readonly messageId: string;

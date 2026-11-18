@@ -22,22 +22,60 @@ describe('config/env', () => {
     assert.equal(config.waAuthDir, 'auth_info');
     assert.equal(config.waPairingPhone, undefined);
     assert.equal(config.allowedGroupJids.size, 0);
+    assert.equal(config.geminiApiKey, undefined);
+    assert.equal(config.geminiModel, 'gemini-3.5-flash-lite');
+    assert.deepEqual(config.geminiFallbackModels, ['gemini-3.1-flash-lite']);
+    assert.equal(config.geminiTimeoutMs, 10_000);
+    assert.equal(config.enableSearchGrounding, false);
+    assert.equal(config.dbPath, 'data/aigis.db');
+    assert.equal(config.groupContextWindowSize, 12);
+    assert.equal(config.groupMessageRetentionLimit, 100);
+    assert.equal(config.communitySeedPath, 'data/community_seed.local.json');
     assert.equal(config.userCooldownMs, 15_000);
     assert.equal(config.groupCooldownMs, 5_000);
+    assert.equal(config.adminCooldownMs, 4_000);
+    assert.equal(config.adminGroupCooldownMs, 2_000);
+    assert.equal(config.cooldownReactionEmoji, '⏳');
+    assert.equal(config.groupMetadataCacheTtlMs, 300_000);
+    assert.equal(config.maxPromptChars, 1_500);
+    assert.equal(config.maxQuotedChars, 1_000);
   });
 
-  it('parses owners, allowed groups, and pairing phone from env', () => {
+  it('parses owners, allowed groups, LLM settings, and pairing phone from env', () => {
     const config = loadConfig({
       WA_PAIRING_PHONE: '+62 811-2233-4455',
       ALLOWED_GROUP_JIDS: '12345@g.us, 67890@g.us',
       BOT_OWNER_NUMBERS: '+62 899-0000-1111',
+      GEMINI_API_KEY: ' AIzaTestKey ',
+      GEMINI_MODEL: 'gemini-2.5-flash',
+      ENABLE_SEARCH_GROUNDING: 'false',
+      GROUP_CONTEXT_WINDOW_SIZE: '15',
+      GROUP_MESSAGE_RETENTION_LIMIT: '200',
+      COMMUNITY_SEED_PATH: 'data/custom_seed.json',
       USER_COOLDOWN_MS: '20000',
+      ADMIN_COOLDOWN_MS: '3000',
+      ADMIN_GROUP_COOLDOWN_MS: '1500',
+      COOLDOWN_REACT_EMOJI: 'none',
+      GROUP_METADATA_CACHE_TTL_MS: '60000',
+      MAX_PROMPT_CHARS: '1200',
+      MAX_QUOTED_CHARS: '800',
     });
 
     assert.equal(config.waPairingPhone, '6281122334455');
     assert.deepEqual([...config.allowedGroupJids], ['12345@g.us', '67890@g.us']);
     assert.deepEqual([...config.botOwnerNumbers], ['6289900001111']);
+    assert.equal(config.geminiApiKey, 'AIzaTestKey');
+    assert.equal(config.enableSearchGrounding, false);
+    assert.equal(config.groupContextWindowSize, 15);
+    assert.equal(config.groupMessageRetentionLimit, 200);
+    assert.equal(config.communitySeedPath, 'data/custom_seed.json');
     assert.equal(config.userCooldownMs, 20_000);
     assert.equal(config.groupCooldownMs, 5_000);
+    assert.equal(config.adminCooldownMs, 3_000);
+    assert.equal(config.adminGroupCooldownMs, 1_500);
+    assert.equal(config.cooldownReactionEmoji, undefined);
+    assert.equal(config.groupMetadataCacheTtlMs, 60_000);
+    assert.equal(config.maxPromptChars, 1_200);
+    assert.equal(config.maxQuotedChars, 800);
   });
 });
