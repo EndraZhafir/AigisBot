@@ -4,6 +4,7 @@ import type { WAMessage } from '@whiskeysockets/baileys';
 import {
   extractTextAndContextInfo,
   isBotJid,
+  observeWhitelistedGroupMessage,
   routeIncomingMessage,
   stripBotMentionTokens,
 } from '../src/whatsapp/router.js';
@@ -146,5 +147,34 @@ describe('whatsapp/router', () => {
 
     assert.equal(payload.text, '@628111222333 ini Persona siapa?');
     assert.deepEqual(payload.contextInfo?.mentionedJid, ['628111222333@s.whatsapp.net']);
+  });
+
+  it('observes non-trigger whitelisted group chatter while ignoring unwhitelisted groups and fromMe', () => {
+    const regularChat: WAMessage = {
+      key: {
+        remoteJid: '120363999888777@g.us',
+        fromMe: false,
+        id: 'obs-1',
+        participant: '112233445566@lid',
+        participantAlt: '628555666777@s.whatsapp.net',
+      },
+      pushName: 'Comrade',
+      messageTimestamp: 1794816000,
+      message: {
+        conversation: 'Guys nanti malam jam 8 mabar Metaphor yuk!',
+      },
+    };
+
+    const observed = observeWhitelistedGroupMessage(regularChat, BOT_IDENTITY, ALLOWED_GROUPS);
+    assert.ok(observed);
+    assert.equal(observed.senderName, 'Comrade');
+    assert.equal(observed.cleanText, 'Guys nanti malam jam 8 mabar Metaphor yuk!');
+    assert.equal(routeIncomingMessage(regularChat, BOT_IDENTITY, ALLOWED_GROUPS).matched, false);
+
+    const fromMeChat: WAMessage = {
+      key: { remoteJid: '120363999888777@g.us', fromMe: true, id: 'obs-2' },
+      message: { conversation: 'Self message' },
+    };
+    assert.equal(observeWhitelistedGroupMessage(fromMeChat, BOT_IDENTITY, ALLOWED_GROUPS), undefined);
   });
 });

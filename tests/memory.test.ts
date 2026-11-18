@@ -15,6 +15,13 @@ import {
   migrateMemoryDatabase,
   openMemoryDatabase,
 } from '../src/memory/database.js';
+import { MemoryContextService } from '../src/memory/contextService.js';
+import { GroupBufferRepository } from '../src/memory/groupBufferRepo.js';
+import {
+  MemberMemoryRepository,
+  calculateBondLevel,
+  extractPhoneDigitsFromJid,
+} from '../src/memory/memberMemoryRepo.js';
 
 describe('memory/database', () => {
   it('initializes schema tables and migrations idempotently in memory', () => {
@@ -200,3 +207,199 @@ describe('memory/communitySeed', () => {
     }
   });
 });
+
+describe('memory/groupBufferRepo', () => {
+  it('saves messages idempotently, returns chronological sliding window, and prunes old rows per group', () => {
+    const db = openMemoryDatabase(':memory:');
+    try {
+      const repo = new GroupBufferRepository(db);
+      const groupA = '120363000000001@g.us';
+      const groupB = '120363000000002@g.us';
+
+      for (let i = 1; i <= 6; i += 1) {
+        repo.saveMessage(
+          {
+            groupJid: groupA,
+            messageId: `msg-${i}`,
+            senderJid: '6280000000001@s.whatsapp.net',
+            senderName: 'MemberA',
+            text: `Message ${i}`,
+            timestampMs: 10_000 + i * 1_000,
+          },
+          4,
+        );
+      }
+
+      // Duplicate messageId should be ignored cleanly.
+      repo.saveMessage(
+        {
+          groupJid: groupA,
+          messageId: 'msg-6',
+          senderJid: '6280000000001@s.whatsapp.net',
+          senderName: 'MemberA',
+          text: 'Duplicate attempt',
+          timestampMs: 16_000,
+        },
+        4,
+      );
+
+      repo.saveMessage(
+        {
+          groupJid: groupB,
+          messageId: 'other-1',
+          senderJid: '6280000000002@s.whatsapp.net',
+          senderName: 'MemberB',
+          text: 'Separate group chat',
+          timestampMs: 20_000,
+        },
+        4,
+      );
+
+      assert.equal(repo.countGroupMessages(groupA), 4);
+      assert.equal(repo.countGroupMessages(groupB), 1);
+
+      const windowExcludingCurrent = repo.getRecentMessages(groupA, 3, 'msg-6');
+      assert.deepEqual(
+        windowExcludingCurrent.map((m) => m.messageId),
+        ['msg-3', 'msg-4', 'msg-5'],
+      );
+      assert.equal(repo.findMessageById(groupA, 'msg-6')?.text, 'Message 6');
+    } finally {
+      closeMemoryDatabase(db);
+    }
+  });
+});
+
+describe('memory/memberMemoryRepo and contextService', () => {
+  it('extracts phone digits only from phone JIDs and computes Social Link bond levels', () => {
+    assert.equal(extractPhoneDigitsFromJid('6280000000001:4@s.whatsapp.net'), '6280000000001');
+    assert.equal(extractPhoneDigitsFromJid('99887766554433@lid'), undefined);
+    assert.equal(extractPhoneDigitsFromJid('120363000000001@g.us'), undefined);
+
+    assert.equal(calculateBondLevel(0), 1);
+    assert.equal(calculateBondLevel(1), 2);
+    assert.equal(calculateBondLevel(4), 3);
+    assert.equal(calculateBondLevel(81), 10);
+    assert.equal(calculateBondLevel(999), 10);
+  });
+
+  it('unifies @lid and phone identities, resolves trivia without leaking numbers, and records bot replies', () => {
+    const db = openMemoryDatabase(':memory:');
+    try {
+      seedCommunityTrivia(
+        db,
+        [
+          {
+            slug: 'alpha',
+            displayName: 'Alpha',
+            role: 'Founder',
+            phoneDigits: '6280000000001',
+            aliases: ['alpha', 'leader'],
+            trivia: 'Founder who organized the very first meetup.',
+          },
+          {
+            slug: 'beta',
+            displayName: 'Beta',
+            role: 'Co-Founder',
+            phoneDigits: '6280000000002',
+            aliases: ['beta'],
+            trivia: '',
+          },
+        ],
+        5_000,
+      );
+
+      const groupBuffer = new GroupBufferRepository(db);
+      const memberRepo = new MemberMemoryRepository(db);
+      const contextService = new MemoryContextService(groupBuffer, memberRepo, 10, 50);
+      const groupJid = '120363999000111@g.us';
+
+      // Step 1: User posts casual message from @lid without alt JID yet.
+      contextService.recordObservedMessage({
+        groupJid,
+        messageId: 'm-1',
+        senderJid: '111222333444@lid',
+        senderName: 'AlphaOldName',
+        text: 'Guys, besok kita bahas Persona 3 Reload!',
+        timestampMs: 1_000,
+      });
+
+      const passiveProfile = memberRepo.getMemberByIdentity(groupJid, '111222333444@lid');
+      assert.equal(passiveProfile?.interactionCount, 0);
+      assert.equal(passiveProfile?.bondLevel, 1);
+
+      // Step 2: Same user later triggers Aigis with resolved senderAltJid (phone JID).
+      contextService.recordObservedMessage({
+        groupJid,
+        messageId: 'm-2',
+        senderJid: '111222333444@lid',
+        senderAltJid: '6280000000001@s.whatsapp.net',
+        senderName: 'Alpha',
+        text: 'siapa saja founder komunitas ini?',
+        timestampMs: 2_000,
+      });
+
+      const ctx = contextService.preparePromptContext({
+        groupJid,
+        currentMessageId: 'm-2',
+        senderJid: '111222333444@lid',
+        senderAltJid: '6280000000001@s.whatsapp.net',
+        senderName: 'Alpha',
+        promptText: 'siapa saja founder komunitas ini?',
+        quotedStanzaId: 'm-1',
+        quotedParticipantJid: '111222333444@lid',
+        timestampMs: 2_000,
+      });
+
+      assert.equal(ctx.memberProfile.displayName, 'Alpha');
+      assert.equal(ctx.memberProfile.communityRole, 'Founder');
+      assert.equal(ctx.memberProfile.interactionCount, 1);
+      assert.equal(ctx.memberProfile.bondLevel, 2);
+      assert.equal(ctx.quotedParticipantLabel, 'AlphaOldName');
+      assert.deepEqual(
+        ctx.recentMessages.map((m) => m.text),
+        ['Guys, besok kita bahas Persona 3 Reload!'],
+      );
+      assert.deepEqual(ctx.matchedTrivia, [
+        {
+          displayName: 'Alpha',
+          role: 'Founder',
+          trivia: 'Founder who organized the very first meetup.',
+        },
+        {
+          displayName: 'Beta',
+          role: 'Co-Founder',
+          trivia: '',
+        },
+      ]);
+
+      // Unified lookup by phone JID now hits the upgraded member row.
+      const unified = memberRepo.getMemberByIdentity(groupJid, '6280000000001@s.whatsapp.net');
+      assert.equal(unified?.memberKey, 'pn:6280000000001');
+      assert.equal(unified?.interactionCount, 1);
+
+      // Step 3: Save bot reply and verify it enters the sliding window.
+      contextService.recordBotReply({
+        groupJid,
+        messageId: 'bot-1',
+        botJid: '6289999999999@s.whatsapp.net',
+        text: 'Founder komunitas ini adalah Alpha dan Beta.',
+        timestampMs: 3_000,
+      });
+
+      const afterBot = groupBuffer.getRecentMessages(groupJid, 10);
+      assert.equal(afterBot.length, 3);
+      assert.equal(afterBot[2]?.isFromBot, true);
+      assert.equal(afterBot[2]?.senderName, 'Aigis');
+
+      // Plural English queries ("founders", "co-founders", "admins") must also match broad trivia.
+      const pluralMatches = memberRepo.findMatchingTrivia('Do you know who the founders are?');
+      assert.equal(pluralMatches.length, 2);
+      const adminPluralMatches = memberRepo.findMatchingTrivia('Who are the co-founders and admins?');
+      assert.equal(adminPluralMatches.length, 2);
+    } finally {
+      closeMemoryDatabase(db);
+    }
+  });
+});
+

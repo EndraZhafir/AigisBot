@@ -108,6 +108,58 @@ describe('brain/persona and promptBuilder', () => {
     assert.match(prompt, /\[15 Nov 2026\] \(Persona Central\) Persona 3 Reload Update Announced/);
     assert.match(prompt, /YouTube: https:\/\/www\.youtube\.com\/watch\?v=dQw4w9WgXcQ/);
   });
+
+  it('injects recent group context, member profile, and founder dossier cleanly without phone numbers', () => {
+    const prompt = buildUserTurnPrompt(
+      {
+        senderName: 'Alpha',
+        senderJid: '6280000000001@s.whatsapp.net',
+        promptText: 'Ceritain dong soal founder komunitas ini',
+        recentMessages: [
+          {
+            senderName: 'Comrade',
+            text: 'Besok mabar P3R yuk',
+            isFromBot: false,
+            timestampMs: Date.UTC(2026, 10, 18, 7, 15),
+          },
+          {
+            senderName: 'Aigis',
+            text: 'Affirmative, mission acknowledged.',
+            isFromBot: true,
+            timestampMs: Date.UTC(2026, 10, 18, 7, 16),
+          },
+        ],
+        memberProfile: {
+          displayName: 'Alpha',
+          communityRole: 'Founder',
+          bondLevel: 3,
+          interactionCount: 5,
+        },
+        matchedTrivia: [
+          {
+            displayName: 'Alpha',
+            role: 'Founder',
+            trivia: 'Founder who organized the first meetup.',
+          },
+          {
+            displayName: 'Beta',
+            role: 'Co-Founder',
+            trivia: '',
+          },
+        ],
+      },
+      'casual',
+    );
+
+    assert.match(prompt, /MEMBER PROFILE: Alpha \| Community Role: Founder \| Social Link Bond Rank: 3\/10/);
+    assert.match(prompt, /RECENT GROUP CHAT CONTEXT/);
+    assert.match(prompt, /Comrade: Besok mabar P3R yuk/);
+    assert.match(prompt, /Aigis: Affirmative, mission acknowledged\./);
+    assert.match(prompt, /VERIFIED ATLUS JOGJA FOUNDER & ADMIN DOSSIER/);
+    assert.match(prompt, /Alpha — Role: Founder \| Trivia: Founder who organized the first meetup\./);
+    assert.match(prompt, /Beta — Role: Co-Founder \| Trivia: No personal trivia recorded in the dossier yet/);
+    assert.doesNotMatch(prompt, /not yet loaded in the database/);
+  });
 });
 
 describe('brain/newsGrounder', () => {
