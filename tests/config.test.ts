@@ -33,6 +33,12 @@ describe('config/env', () => {
     assert.equal(config.communitySeedPath, 'data/community_seed.local.json');
     assert.equal(config.userCooldownMs, 15_000);
     assert.equal(config.groupCooldownMs, 5_000);
+    assert.equal(config.adminCooldownMs, 4_000);
+    assert.equal(config.adminGroupCooldownMs, 2_000);
+    assert.equal(config.cooldownReactionEmoji, '⏳');
+    assert.equal(config.groupMetadataCacheTtlMs, 300_000);
+    assert.equal(config.maxPromptChars, 1_500);
+    assert.equal(config.maxQuotedChars, 1_000);
   });
 
   it('parses owners, allowed groups, LLM settings, and pairing phone from env', () => {
@@ -47,6 +53,12 @@ describe('config/env', () => {
       GROUP_MESSAGE_RETENTION_LIMIT: '200',
       COMMUNITY_SEED_PATH: 'data/custom_seed.json',
       USER_COOLDOWN_MS: '20000',
+      ADMIN_COOLDOWN_MS: '3000',
+      ADMIN_GROUP_COOLDOWN_MS: '1500',
+      COOLDOWN_REACT_EMOJI: 'none',
+      GROUP_METADATA_CACHE_TTL_MS: '60000',
+      MAX_PROMPT_CHARS: '1200',
+      MAX_QUOTED_CHARS: '800',
     });
 
     assert.equal(config.waPairingPhone, '6281122334455');
@@ -59,5 +71,11 @@ describe('config/env', () => {
     assert.equal(config.communitySeedPath, 'data/custom_seed.json');
     assert.equal(config.userCooldownMs, 20_000);
     assert.equal(config.groupCooldownMs, 5_000);
+    assert.equal(config.adminCooldownMs, 3_000);
+    assert.equal(config.adminGroupCooldownMs, 1_500);
+    assert.equal(config.cooldownReactionEmoji, undefined);
+    assert.equal(config.groupMetadataCacheTtlMs, 60_000);
+    assert.equal(config.maxPromptChars, 1_200);
+    assert.equal(config.maxQuotedChars, 800);
   });
 });

@@ -23,6 +23,12 @@ export interface AppConfig {
   readonly communitySeedPath: string;
   readonly userCooldownMs: number;
   readonly groupCooldownMs: number;
+  readonly adminCooldownMs: number;
+  readonly adminGroupCooldownMs: number;
+  readonly cooldownReactionEmoji: string | undefined;
+  readonly groupMetadataCacheTtlMs: number;
+  readonly maxPromptChars: number;
+  readonly maxQuotedChars: number;
 }
 
 /**
@@ -84,6 +90,20 @@ function parseNodeEnv(rawValue: string | undefined): AppConfig['nodeEnv'] {
   return 'development';
 }
 
+function parseOptionalEmoji(rawValue: string | undefined, fallback: string): string | undefined {
+  if (rawValue === undefined) {
+    return fallback;
+  }
+
+  const trimmed = rawValue.trim();
+  const normalized = trimmed.toLowerCase();
+  if (!trimmed || normalized === 'none' || normalized === 'off' || normalized === 'false') {
+    return undefined;
+  }
+
+  return trimmed;
+}
+
 /**
  * Loads and normalizes runtime configuration from environment variables.
  */
@@ -122,5 +142,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     communitySeedPath: env.COMMUNITY_SEED_PATH?.trim() || 'data/community_seed.local.json',
     userCooldownMs: parsePositiveInt(env.USER_COOLDOWN_MS, 15_000),
     groupCooldownMs: parsePositiveInt(env.GROUP_COOLDOWN_MS, 5_000),
+    adminCooldownMs: parsePositiveInt(env.ADMIN_COOLDOWN_MS, 4_000),
+    adminGroupCooldownMs: parsePositiveInt(env.ADMIN_GROUP_COOLDOWN_MS, 2_000),
+    cooldownReactionEmoji: parseOptionalEmoji(env.COOLDOWN_REACT_EMOJI, '⏳'),
+    groupMetadataCacheTtlMs: parsePositiveInt(env.GROUP_METADATA_CACHE_TTL_MS, 5 * 60_000),
+    maxPromptChars: parsePositiveInt(env.MAX_PROMPT_CHARS, 1_500),
+    maxQuotedChars: parsePositiveInt(env.MAX_QUOTED_CHARS, 1_000),
   };
 }
