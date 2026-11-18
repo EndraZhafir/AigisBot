@@ -1,0 +1,15 @@
+name: aigis-bot
+
+services:
+  aigis-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aigis-api
+    env_file:
+      - .env
+    restart: always
+    stop_grace_period: 15s
+    volumes:
+      - ./auth_info:/app/auth_info
+      - ./data:/app/data
