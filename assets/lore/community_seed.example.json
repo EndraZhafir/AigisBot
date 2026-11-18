@@ -1,0 +1,18 @@
+[
+  {
+    "slug": "founder-example",
+    "displayName": "Founder Name",
+    "role": "Founder",
+    "phone": "+62 800-0000-0001",
+    "aliases": ["founder", "nick"],
+    "trivia": ""
+  },
+  {
+    "slug": "co-founder-example",
+    "displayName": "Co-Founder Name",
+    "role": "Co-Founder",
+    "phone": "+62 800-0000-0002",
+    "aliases": ["cofounder"],
+    "trivia": "Co-Founder & contributor for the ATLUS Jogja community."
+  }
+]
