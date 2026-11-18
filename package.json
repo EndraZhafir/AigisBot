@@ -12,6 +12,7 @@
     "sandbox": "tsx src/cli-sandbox.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "backup": "node dist/backup.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"tests/**/*.test.ts\""
   },
