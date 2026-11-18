@@ -1,0 +1,15 @@
+name: aigis-panel
+
+services:
+  aigis-api:
+    build:
+      context: ./aigis-api
+      dockerfile: Dockerfile
+    container_name: aigis-api
+    env_file:
+      - ./aigis-api/.env
+    restart: always
+    stop_grace_period: 15s
+    volumes:
+      - ./aigis-api/auth_info:/app/auth_info
+      - ./aigis-api/data:/app/data
