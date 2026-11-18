@@ -11,8 +11,10 @@ import {
 } from '@whiskeysockets/baileys';
 import type {
   BotIdentity,
+  ObservedGroupMessage,
   QuotedMessageContext,
   RouterDecision,
+  RouterIgnoreReason,
 } from './types.js';
 
 interface ExtractedPayload {
@@ -134,6 +136,93 @@ function extractQuotedContext(
   };
 }
 
+type GroupTextExtractionResult =
+  | {
+      readonly ok: true;
+      readonly groupJid: string;
+      readonly messageId: string;
+      readonly senderJid: string;
+      readonly senderAltJid: string | undefined;
+      readonly senderName: string;
+      readonly text: string;
+      readonly contextInfo: proto.IContextInfo | undefined;
+      readonly timestampMs: number;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: Exclude<RouterIgnoreReason, 'not_triggered'>;
+      readonly groupJid?: string | undefined;
+    };
+
+function extractValidWhitelistedGroupMessage(
+  msg: WAMessage,
+  allowedGroupJids: ReadonlySet<string>,
+): GroupTextExtractionResult {
+  if (msg.key.fromMe) {
+    return { ok: false, reason: 'from_me' };
+  }
+
+  const remoteJid = msg.key.remoteJid;
+  if (!remoteJid || isJidStatusBroadcast(remoteJid)) {
+    return { ok: false, reason: 'status_broadcast' };
+  }
+
+  if (!isJidGroup(remoteJid)) {
+    return { ok: false, reason: 'not_group' };
+  }
+
+  if (!allowedGroupJids.has(remoteJid)) {
+    return { ok: false, reason: 'group_not_whitelisted', groupJid: remoteJid };
+  }
+
+  const { text, contextInfo } = extractTextAndContextInfo(msg.message);
+  if (!text) {
+    return { ok: false, reason: 'empty_message', groupJid: remoteJid };
+  }
+
+  const senderJid = msg.key.participant ?? remoteJid;
+  const senderName = msg.pushName?.trim() || jidDecode(senderJid)?.user || 'Unknown Member';
+
+  return {
+    ok: true,
+    groupJid: remoteJid,
+    messageId: msg.key.id ?? `${Date.now()}`,
+    senderJid,
+    senderAltJid: msg.key.participantAlt ?? undefined,
+    senderName,
+    text,
+    contextInfo,
+    timestampMs: toNumber(msg.messageTimestamp) * 1000 || Date.now(),
+  };
+}
+
+/**
+ * Extracts a normalized group message from a whitelisted group for sliding-window memory,
+ * regardless of whether Aigis was explicitly mentioned or replied to.
+ */
+export function observeWhitelistedGroupMessage(
+  msg: WAMessage,
+  identity: BotIdentity,
+  allowedGroupJids: ReadonlySet<string>,
+): ObservedGroupMessage | undefined {
+  const extracted = extractValidWhitelistedGroupMessage(msg, allowedGroupJids);
+  if (!extracted.ok) {
+    return undefined;
+  }
+
+  const cleanText = stripBotMentionTokens(extracted.text, identity) || extracted.text;
+  return {
+    groupJid: extracted.groupJid,
+    messageId: extracted.messageId,
+    senderJid: extracted.senderJid,
+    senderAltJid: extracted.senderAltJid,
+    senderName: extracted.senderName,
+    rawText: extracted.text,
+    cleanText,
+    timestampMs: extracted.timestampMs,
+  };
+}
+
 /**
  * Evaluates a single incoming Baileys message and decides whether it should trigger Aigis.
  * Pure function: safe to test without a live WhatsApp socket.
@@ -143,53 +232,38 @@ export function routeIncomingMessage(
   identity: BotIdentity,
   allowedGroupJids: ReadonlySet<string>,
 ): RouterDecision {
-  if (msg.key.fromMe) {
-    return { matched: false, reason: 'from_me' };
+  const extracted = extractValidWhitelistedGroupMessage(msg, allowedGroupJids);
+  if (!extracted.ok) {
+    return {
+      matched: false,
+      reason: extracted.reason,
+      ...(extracted.groupJid ? { groupJid: extracted.groupJid } : {}),
+    };
   }
 
-  const remoteJid = msg.key.remoteJid;
-  if (!remoteJid || isJidStatusBroadcast(remoteJid)) {
-    return { matched: false, reason: 'status_broadcast' };
-  }
-
-  if (!isJidGroup(remoteJid)) {
-    return { matched: false, reason: 'not_group' };
-  }
-
-  if (!allowedGroupJids.has(remoteJid)) {
-    return { matched: false, reason: 'group_not_whitelisted', groupJid: remoteJid };
-  }
-
-  const { text, contextInfo } = extractTextAndContextInfo(msg.message);
-  if (!text) {
-    return { matched: false, reason: 'empty_message', groupJid: remoteJid };
-  }
-
-  const mentionedJids = contextInfo?.mentionedJid ?? [];
+  const mentionedJids = extracted.contextInfo?.mentionedJid ?? [];
   const isExplicitMention = mentionedJids.some((jid) => isBotJid(jid, identity));
-  const isReplyToBot = isBotJid(contextInfo?.participant, identity);
+  const isReplyToBot = isBotJid(extracted.contextInfo?.participant, identity);
 
   if (!isExplicitMention && !isReplyToBot) {
-    return { matched: false, reason: 'not_triggered', groupJid: remoteJid };
+    return { matched: false, reason: 'not_triggered', groupJid: extracted.groupJid };
   }
 
   const triggerReason = isExplicitMention ? 'mention' : 'reply_to_bot';
-  const senderJid = msg.key.participant ?? remoteJid;
-  const senderName = msg.pushName?.trim() || jidDecode(senderJid)?.user || 'Unknown Member';
 
   return {
     matched: true,
     trigger: {
-      groupJid: remoteJid,
-      messageId: msg.key.id ?? `${Date.now()}`,
-      senderJid,
-      senderAltJid: msg.key.participantAlt ?? undefined,
-      senderName,
+      groupJid: extracted.groupJid,
+      messageId: extracted.messageId,
+      senderJid: extracted.senderJid,
+      senderAltJid: extracted.senderAltJid,
+      senderName: extracted.senderName,
       triggerReason,
-      cleanPromptText: stripBotMentionTokens(text, identity),
-      rawText: text,
-      quotedContext: extractQuotedContext(contextInfo),
-      timestampMs: toNumber(msg.messageTimestamp) * 1000 || Date.now(),
+      cleanPromptText: stripBotMentionTokens(extracted.text, identity),
+      rawText: extracted.text,
+      quotedContext: extractQuotedContext(extracted.contextInfo),
+      timestampMs: extracted.timestampMs,
     },
   };
 }

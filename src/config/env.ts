@@ -18,6 +18,9 @@ export interface AppConfig {
   readonly enableSearchGrounding: boolean;
   readonly newsFeedCacheTtlMs: number;
   readonly dbPath: string;
+  readonly groupContextWindowSize: number;
+  readonly groupMessageRetentionLimit: number;
+  readonly communitySeedPath: string;
   readonly userCooldownMs: number;
   readonly groupCooldownMs: number;
 }
@@ -114,6 +117,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     enableSearchGrounding: parseBoolean(env.ENABLE_SEARCH_GROUNDING, false),
     newsFeedCacheTtlMs: parsePositiveInt(env.NEWS_FEED_CACHE_TTL_MS, 15 * 60_000),
     dbPath: env.DB_PATH?.trim() || 'data/aigis.db',
+    groupContextWindowSize: parsePositiveInt(env.GROUP_CONTEXT_WINDOW_SIZE, 12),
+    groupMessageRetentionLimit: parsePositiveInt(env.GROUP_MESSAGE_RETENTION_LIMIT, 100),
+    communitySeedPath: env.COMMUNITY_SEED_PATH?.trim() || 'data/community_seed.local.json',
     userCooldownMs: parsePositiveInt(env.USER_COOLDOWN_MS, 15_000),
     groupCooldownMs: parsePositiveInt(env.GROUP_COOLDOWN_MS, 5_000),
   };

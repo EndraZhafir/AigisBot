@@ -27,6 +27,10 @@ describe('config/env', () => {
     assert.deepEqual(config.geminiFallbackModels, ['gemini-3.1-flash-lite']);
     assert.equal(config.geminiTimeoutMs, 10_000);
     assert.equal(config.enableSearchGrounding, false);
+    assert.equal(config.dbPath, 'data/aigis.db');
+    assert.equal(config.groupContextWindowSize, 12);
+    assert.equal(config.groupMessageRetentionLimit, 100);
+    assert.equal(config.communitySeedPath, 'data/community_seed.local.json');
     assert.equal(config.userCooldownMs, 15_000);
     assert.equal(config.groupCooldownMs, 5_000);
   });
@@ -39,6 +43,9 @@ describe('config/env', () => {
       GEMINI_API_KEY: ' AIzaTestKey ',
       GEMINI_MODEL: 'gemini-2.5-flash',
       ENABLE_SEARCH_GROUNDING: 'false',
+      GROUP_CONTEXT_WINDOW_SIZE: '15',
+      GROUP_MESSAGE_RETENTION_LIMIT: '200',
+      COMMUNITY_SEED_PATH: 'data/custom_seed.json',
       USER_COOLDOWN_MS: '20000',
     });
 
@@ -47,6 +54,9 @@ describe('config/env', () => {
     assert.deepEqual([...config.botOwnerNumbers], ['6289900001111']);
     assert.equal(config.geminiApiKey, 'AIzaTestKey');
     assert.equal(config.enableSearchGrounding, false);
+    assert.equal(config.groupContextWindowSize, 15);
+    assert.equal(config.groupMessageRetentionLimit, 200);
+    assert.equal(config.communitySeedPath, 'data/custom_seed.json');
     assert.equal(config.userCooldownMs, 20_000);
     assert.equal(config.groupCooldownMs, 5_000);
   });

@@ -15,7 +15,7 @@ export async function sendQuotedReply(
   quotedMessage: WAMessage,
   logger: Logger,
   options: ReplyOptions = {},
-): Promise<void> {
+): Promise<WAMessage | undefined> {
   const typingDelayMs = options.typingDelayMs ?? 1_000;
 
   try {
@@ -27,7 +27,7 @@ export async function sendQuotedReply(
   }
 
   try {
-    await sock.sendMessage(groupJid, { text, linkPreview: null }, { quoted: quotedMessage });
+    return await sock.sendMessage(groupJid, { text, linkPreview: null }, { quoted: quotedMessage });
   } finally {
     try {
       await sock.sendPresenceUpdate('paused', groupJid);
