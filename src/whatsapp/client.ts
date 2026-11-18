@@ -56,6 +56,7 @@ export class WaGatewayClient {
     private readonly appLogger: Logger,
     private readonly baileysLogger: Logger,
     private readonly onMessages: IncomingMessagesHandler,
+    private readonly onGroupParticipantsUpdate?: (groupJid: string) => void,
   ) {}
 
   async start(): Promise<void> {
@@ -130,6 +131,12 @@ export class WaGatewayClient {
       void this.onMessages(upsert.messages, identity, sock).catch((err: unknown) => {
         this.appLogger.error({ err }, 'Unhandled error inside message handler.');
       });
+    });
+
+    sock.ev.on('group-participants.update', (update) => {
+      if (update.id) {
+        this.onGroupParticipantsUpdate?.(update.id);
+      }
     });
   }
 

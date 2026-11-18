@@ -3,6 +3,7 @@ import { stdin as input, stdout as output } from 'node:process';
 import { AigisBrain } from './brain/llmClient.js';
 import { loadConfig } from './config/env.js';
 import { createAppLogger } from './config/logger.js';
+import { sanitizeIncomingText } from './guards/sanitize.js';
 import { loadCommunitySeedFile, seedCommunityTrivia } from './memory/communitySeed.js';
 import { MemoryContextService } from './memory/contextService.js';
 import { closeMemoryDatabase, openMemoryDatabase } from './memory/database.js';
@@ -112,13 +113,17 @@ async function runSandbox(): Promise<void> {
       const messageId = `sandbox-msg-${sequence}`;
       const now = simulateDarkHour ? new Date('2026-11-16T17:15:00.000Z') : new Date();
       const timestampMs = now.getTime();
+      const sanitizedPrompt = sanitizeIncomingText(rawLine, { maxChars: config.maxPromptChars });
+      const sanitizedQuote = pendingQuoteText
+        ? sanitizeIncomingText(pendingQuoteText, { maxChars: config.maxQuotedChars })
+        : undefined;
 
       memoryContext.recordObservedMessage({
         groupJid: SANDBOX_GROUP_JID,
         messageId,
         senderJid: SANDBOX_USER_JID,
         senderName: 'Zhafir (Sandbox)',
-        text: rawLine,
+        text: sanitizedPrompt.text,
         timestampMs,
       });
 
@@ -127,17 +132,17 @@ async function runSandbox(): Promise<void> {
         currentMessageId: messageId,
         senderJid: SANDBOX_USER_JID,
         senderName: 'Zhafir (Sandbox)',
-        promptText: rawLine,
-        quotedText: pendingQuoteText,
+        promptText: sanitizedPrompt.text,
+        quotedText: sanitizedQuote?.text,
         timestampMs,
       });
 
       const response = await brain.generateReply({
         senderName: 'Zhafir (Sandbox)',
         senderJid: SANDBOX_USER_JID,
-        promptText: rawLine,
-        quotedText: pendingQuoteText,
-        quotedParticipantLabel: pendingQuoteText ? (pendingQuoteAuthor ?? 'Group Member') : undefined,
+        promptText: sanitizedPrompt.text,
+        quotedText: sanitizedQuote?.text,
+        quotedParticipantLabel: sanitizedQuote?.text ? (pendingQuoteAuthor ?? 'Group Member') : undefined,
         recentMessages: promptContext.recentMessages,
         memberProfile: promptContext.memberProfile,
         matchedTrivia: promptContext.matchedTrivia,

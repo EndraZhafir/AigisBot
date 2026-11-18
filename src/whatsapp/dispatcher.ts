@@ -36,3 +36,29 @@ export async function sendQuotedReply(
     }
   }
 }
+
+/**
+ * Sends a lightweight emoji reaction (e.g. "⏳") to indicate rate-limiting without text spam.
+ */
+export async function sendCooldownReaction(
+  sock: WASocket,
+  groupJid: string,
+  targetMessage: WAMessage,
+  emoji: string,
+  logger: Logger,
+): Promise<void> {
+  if (!emoji || !targetMessage.key?.id) {
+    return;
+  }
+
+  try {
+    await sock.sendMessage(groupJid, {
+      react: {
+        text: emoji,
+        key: targetMessage.key,
+      },
+    });
+  } catch (err) {
+    logger.debug({ err, groupJid, emoji }, 'Failed to send cooldown emoji reaction.');
+  }
+}
